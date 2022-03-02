@@ -1,16 +1,22 @@
+use rand::Rng;
 use uuid::Uuid;
 
 pub struct Wallet {
     pub id: Uuid,
-    pub seed: u32
+    pub seed: String
 }
 
-impl Key for Wallet { 
-    fn create_key() -> String {
-        return String::from("some string")
+impl Wallet {
+    pub fn create_seed(index: &'static str) -> String  {
+        let mut rand_number: String = rand::thread_rng().gen_range(0..u32::MAX)
+            .to_string();
+
+        rand_number.push_str(index);
+
+        return rand_number;
     }
 }
 
-trait Key {
-    fn  create_key() -> String;
+trait Seed {
+    fn  create_seed(index: &'static str) -> String;
 }
