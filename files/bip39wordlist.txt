@@ -1,8 +1,6 @@
 abandon
 ability
-able
-about
-above
+able about above
 absent
 absorb
 abstract
