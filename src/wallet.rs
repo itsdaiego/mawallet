@@ -13,7 +13,7 @@ impl Wallet {
         let mut sequence_vec: Vec<char> = Vec::new();
         let mut rng = thread_rng();
 
-        for _ in 1..sequence_in_bits {
+        for _ in 0..sequence_in_bits {
             let random_bit: u32 = rng.gen_range(0..2);
             let bit_string: char = char::from_digit(random_bit, 10).unwrap();
             sequence_vec.push(bit_string);
@@ -21,27 +21,32 @@ impl Wallet {
 
         let mut hasher = Sha256::new();
 
-        let sequence_32_string: String = sequence_vec
+        let sequence_string: String = sequence_vec
             .iter()
-            .take(32)
             .map(|x| -> String { x.to_string() })
             .collect();
 
-        hasher.update(sequence_32_string);
+        hasher.update(sequence_string);
 
-        let checksum_hash =  format!("{:X}", hasher.finalize());
+        let checksum_hash: String =  format!("{:X}", hasher.finalize());
 
-        let mut sequence_string: String= sequence_vec
+        let checksum_in_binary: String = checksum_hash.clone()
+            .into_bytes()
             .iter()
+            .map(|x| -> String { format!("0{:b}", x) })
             .collect();
 
-        sequence_string.push_str(&checksum_hash);
+        let checksum_in_binary_clone = checksum_in_binary.clone();
+
+        let checksum_4_bit_vec: Vec<char> = checksum_in_binary_clone[0..4].chars().collect();
+
+        let entropy_sequence = [sequence_vec, checksum_4_bit_vec].concat();
 
         let mut sequence_segments = Vec::new();
         let mut segment_bit = String::new();
 
-        for i in 1..sequence_vec.len() {
-            let sequence_vec_item = sequence_vec[i].clone();
+        for i in 0..entropy_sequence.len() {
+            let sequence_vec_item = entropy_sequence[i].clone();
             segment_bit.push_str(&sequence_vec_item.to_string());
 
             if i % 11 == 0 {
