@@ -10,4 +10,4 @@ uuid = { version = "0.8", features = ["v4"] }
 rand = "0.8.4"
 nine = "0.5.0"
 sha2 = "0.10.2"
-byteorder = "1.4.3"
+ring = "0.16.20"

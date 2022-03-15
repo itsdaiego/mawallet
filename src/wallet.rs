@@ -2,6 +2,7 @@ use rand::{thread_rng, Rng};
 use uuid::Uuid;
 use sha2::{Sha256, Digest};
 use std::fs;
+use ring::{digest, pbkdf2};
 
 pub struct Wallet {
     pub id: Uuid,
@@ -73,12 +74,32 @@ impl Wallet {
 
     }
 
-    pub fn generate_seed(index: &'static str) -> String  {
-        let mut rand_number: String = rand::thread_rng().gen_range(0..u32::MAX)
-            .to_string();
+    pub fn generate_seed(mnemonic_words: Vec<String>, password: &'static str) -> String  {
+        let mnemonic_words_string: String = mnemonic_words
+            .iter()
+            .map(|x| -> String { x.to_string() })
+            .collect();
 
-        rand_number.push_str(index);
+        let mut seed_bytes = [0u8; digest::SHA256_OUTPUT_LEN];
+        let salt = format!("mnemonic{}", password);
 
-        return rand_number;
+        let pbkdf2_iterations = std::num::NonZeroU32::new(100_000).unwrap();
+
+        static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA256;
+
+        pbkdf2::derive(
+            PBKDF2_ALG,
+            pbkdf2_iterations,
+            salt.as_bytes(),
+            mnemonic_words_string.as_bytes(), 
+            &mut seed_bytes
+        );
+
+        let seed: String = seed_bytes
+            .iter()
+            .map(|x| -> String { format!("{:x?}", x) })
+            .collect();
+
+        return seed;
     }
 }
