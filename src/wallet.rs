@@ -1,12 +1,16 @@
 use rand::{thread_rng, Rng};
 use uuid::Uuid;
 use sha2::{Sha256, Digest};
+use openssl::rsa::Rsa;
+use openssl::symm::Cipher;
 use std::fs;
 use ring::{digest, pbkdf2};
 
 pub struct Wallet {
     pub id: Uuid,
-    pub seed: String
+    pub private_key: String,
+    pub public_key: String,
+    pub chain_code: String
 }
 
 impl Wallet {
@@ -83,7 +87,7 @@ impl Wallet {
         let mut seed_bytes = [0u8; digest::SHA256_OUTPUT_LEN];
         let salt = format!("mnemonic{}", password);
 
-        let pbkdf2_iterations = std::num::NonZeroU32::new(100_000).unwrap();
+        let pbkdf2_iterations = std::num::NonZeroU32::new(2048).unwrap();
 
         static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA256;
 
@@ -101,5 +105,22 @@ impl Wallet {
             .collect();
 
         return seed;
+    }
+
+    pub fn new(seed: String) -> Wallet {
+        let passphrase  = &seed[seed.len() / 2 ..];
+
+        let rsa = Rsa::generate(1024).unwrap();
+        let private_key: Vec<u8> = rsa.private_key_to_pem_passphrase(Cipher::aes_128_cbc(), passphrase.as_bytes()).unwrap();
+        let public_key: Vec<u8> = rsa.public_key_to_pem().unwrap();
+
+        let chain_code  = &seed[.. seed.len() / 2];
+
+        return Wallet {
+            private_key: String::from_utf8(private_key).expect("failed to convert private key"),
+            public_key: String::from_utf8(public_key).expect("failed to convert public key"),
+            chain_code: chain_code.to_string(),
+            id: Uuid::new_v4()
+        }
     }
 }
