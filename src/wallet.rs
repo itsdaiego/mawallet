@@ -1,16 +1,14 @@
 use rand::{thread_rng, Rng};
-use uuid::Uuid;
-use sha2::{Sha256, Digest};
-use openssl::rsa::Rsa;
-use openssl::symm::Cipher;
-use std::fs;
 use ring::{digest, pbkdf2};
+use sha2::{Digest, Sha256};
+use std::fs;
+use crate::key_pair::KeyPair;
 
 pub struct Wallet {
-    pub id: Uuid,
-    pub private_key: String,
-    pub public_key: String,
-    pub chain_code: String
+    pub address: String,
+    pub key_pairs: Vec<KeyPair>
+    // paths: https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch05.asciidoc#hd-wallet-key-identifier-path
+    // pub path: String,
 }
 
 impl Wallet {
@@ -33,9 +31,10 @@ impl Wallet {
 
         hasher.update(sequence_string);
 
-        let checksum_hash: String =  format!("{:X}", hasher.finalize());
+        let checksum_hash: String = format!("{:X}", hasher.finalize());
 
-        let checksum_in_binary: String = checksum_hash.clone()
+        let checksum_in_binary: String = checksum_hash
+            .clone()
             .into_bytes()
             .iter()
             .map(|x| -> String { format!("0{:b}", x) })
@@ -66,7 +65,8 @@ impl Wallet {
             .map(|x| -> i32 { i32::from_str_radix(x, 2).unwrap() })
             .collect();
 
-        let mut wordlist: Vec<String> = fs::read_to_string("files/bip39wordlist.txt").unwrap()
+        let mut wordlist: Vec<String> = fs::read_to_string("files/bip39wordlist.txt")
+            .unwrap()
             .split("\n")
             .map(|x| -> String { x.to_string() })
             .collect();
@@ -75,10 +75,9 @@ impl Wallet {
             .iter()
             .map(|&x| -> String { wordlist.remove(x as usize) })
             .collect();
-
     }
 
-    pub fn generate_seed(mnemonic_words: Vec<String>, password: &'static str) -> String  {
+    pub fn generate_seed(mnemonic_words: Vec<String>, password: &'static str) -> String {
         let mnemonic_words_string: String = mnemonic_words
             .iter()
             .map(|x| -> String { x.to_string() })
@@ -95,8 +94,8 @@ impl Wallet {
             PBKDF2_ALG,
             pbkdf2_iterations,
             salt.as_bytes(),
-            mnemonic_words_string.as_bytes(), 
-            &mut seed_bytes
+            mnemonic_words_string.as_bytes(),
+            &mut seed_bytes,
         );
 
         let seed: String = seed_bytes
@@ -108,19 +107,39 @@ impl Wallet {
     }
 
     pub fn new(seed: String) -> Wallet {
-        let passphrase  = &seed[seed.len() / 2 ..];
+        let mut public_key_hasher = Sha256::new();
+        
+        let private_key: String = seed[seed.len() / 2..].to_owned();
+        public_key_hasher.update(&private_key);
 
-        let rsa = Rsa::generate(1024).unwrap();
-        let private_key: Vec<u8> = rsa.private_key_to_pem_passphrase(Cipher::aes_128_cbc(), passphrase.as_bytes()).unwrap();
-        let public_key: Vec<u8> = rsa.public_key_to_pem().unwrap();
+        let public_key = format!("{:X}", public_key_hasher.finalize());
+        let chain_code = seed[..seed.len() / 2].to_owned();
 
-        let chain_code  = &seed[.. seed.len() / 2];
+        let mut address_hasher = Sha256::new();
+
+        address_hasher.update(&public_key);
+
+        let address = format!("{:X}", address_hasher.finalize());
+
+        let key_pair = KeyPair {
+            private_key: private_key.clone(),
+            public_key,
+            chain_code,
+            index: 0
+        };
+
+        let mut vec = Vec::new();
+        vec.push(key_pair);
 
         return Wallet {
-            private_key: String::from_utf8(private_key).expect("failed to convert private key"),
-            public_key: String::from_utf8(public_key).expect("failed to convert public key"),
-            chain_code: chain_code.to_string(),
-            id: Uuid::new_v4()
-        }
+            key_pairs: vec,
+            // TODO: addres is derived from public key, that's why in a nondeterministic wallet we
+            // have to use one address per transaction booooo
+            address,
+        };
     }
+
+    // pub fn push(self, latest_private_key: String, latest_public_key: String, latest_chain_code: String) -> () {
+
+    // }
 }
