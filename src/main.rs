@@ -1,8 +1,19 @@
 use mawallet::wallet::Wallet;
+use rand::{thread_rng, Rng};
 use mawallet::key_pair::KeyPair;
 
 fn main() {
-    let mnemonic_words = Wallet::generate_mnemonic_words(128);
+    let mut sequence_vec: Vec<char> = Vec::new();
+    let mut rng = thread_rng();
+
+    for _ in 0..128 {
+        let random_bit: u32 = rng.gen_range(0..2);
+        let bit_string: char = char::from_digit(random_bit, 10).unwrap();
+        sequence_vec.push(bit_string);
+    }
+
+    println!("sequence vec {:?}", sequence_vec);
+    let mnemonic_words = Wallet::generate_mnemonic_words(sequence_vec);
 
     let seed = Wallet::generate_seed(mnemonic_words.clone(), "supersupersecretpasswordploft");
 
