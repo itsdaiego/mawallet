@@ -3,13 +3,12 @@ use mawallet::wallet::Wallet;
 use rand::{thread_rng, Rng};
 
 fn main() {
-    let mut sequence_vec: Vec<char> = Vec::new();
+    let mut sequence_vec: Vec<u8> = Vec::new();
     let mut rng = thread_rng();
 
     for _ in 0..128 {
-        let random_bit: u32 = rng.gen_range(0..2);
-        let bit_string: char = char::from_digit(random_bit, 10).unwrap();
-        sequence_vec.push(bit_string);
+        let random_bit: u8 = rng.gen_range(0..2);
+        sequence_vec.push(random_bit);
     }
 
     println!("sequence vec {:?}", sequence_vec);
