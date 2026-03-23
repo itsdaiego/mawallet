@@ -9,11 +9,16 @@ pub struct KeyPair {
 }
 
 impl KeyPair {
-    fn insert_new_path(path: String) -> String {
-        // m/44'/0'/0'/0/0 -> /0  <- first child
-        let mut path = path.clone();
-        path.push_str("/0");
-        return path;
+    fn insert_new_path(path: String, index: u32) -> String {
+        // m/44'/0'/0'/0/0 -> m/44'/0'/0'/0/1
+        // m = master
+        // 44' = BIP-44
+        // 0' = coin (hardened)
+        // 0' = account_number
+        // 0 = action type (sending/receiving or change) (hardened)
+        // 0 = address index
+        let last_slash = path.rfind('/').expect("invalid path: no '/' found");
+        format!("{}/{}", &path[..last_slash], index)
     }
 
     pub fn derive_child(parent_key_pair: &KeyPair, index: u32) -> KeyPair {
@@ -21,7 +26,7 @@ impl KeyPair {
 
         hasher.update(&parent_key_pair.private_key);
         hasher.update(&parent_key_pair.chain_code);
-        hasher.update(&parent_key_pair.index.to_string());
+        hasher.update(parent_key_pair.index.to_be_bytes());
 
         let hash: String = format!("{:X}", hasher.finalize());
 
@@ -38,7 +43,7 @@ impl KeyPair {
             public_key,
             chain_code,
             index: index + 1,
-            path: KeyPair::insert_new_path(parent_key_pair.path.clone()),
+            path: KeyPair::insert_new_path(parent_key_pair.path.clone(), index + 1),
         };
     }
 }
@@ -66,11 +71,11 @@ mod tests {
 
         assert_eq!(
             key_pair.public_key,
-            "F20F33756995A0385616D7A1A7F3B2A173B71DDA0B329A345A4CC8A4C51C2E1A"
+            "398B46F42AFB6AB6FDAE6146636CCA085B42DEFD09DF91D98B738476EF4E6582"
         );
-        assert_eq!(key_pair.private_key, "C150BE0E9BFACD9014C3C1F0ED230A7D");
-        assert_eq!(key_pair.chain_code, "F2332D68100B416B81EDD94E169D8B5E");
-        assert_eq!(key_pair.path, "m/44'/0'/0'/0/0/0");
+        assert_eq!(key_pair.private_key, "329EDA10440E94064EA294060327CC40");
+        assert_eq!(key_pair.chain_code, "DFE9D1DDD450CCD768B9C9477361476F");
+        assert_eq!(key_pair.path, "m/44'/0'/0'/0/1");
         assert_eq!(key_pair.index, 1);
     }
 }
