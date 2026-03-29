@@ -49,6 +49,50 @@ impl Transaction {
         return total_input;
     }
 
+    fn build_tx_data(
+        computed_utxos: &[ComputedUTXO],
+        selected_utxo_indices: &[usize],
+        outputs: &[TxOutput],
+    ) -> String {
+        let mut data = String::new();
+
+        for &i in selected_utxo_indices {
+            let computed_utxo = &computed_utxos[i];
+            data.push_str(&format!("{}:{};", computed_utxo.txid, computed_utxo.output_index));
+        }
+
+        for output in outputs {
+            data.push_str(&format!("{}:{};", output.value, output.address));
+        }
+
+        data
+    }
+
+    fn generate_inputs(
+        computed_utxos: &[ComputedUTXO],
+        selected_utxo_indices: &[usize],
+        sender_private_key: &str,
+        tx_data_hash: &str,
+    ) -> Vec<TxInput> {
+        let mut inputs: Vec<TxInput> = Vec::new();
+
+        for &i in selected_utxo_indices {
+            let computed_utxo = &computed_utxos[i];
+            let signature_data = format!("{}:{};{}", sender_private_key, computed_utxo.txid, tx_data_hash);
+            let mut hasher = Sha256::new();
+            hasher.update(signature_data.as_bytes());
+            let signature = format!("{:X}", hasher.finalize());
+
+            inputs.push(TxInput {
+                prev_txid: computed_utxo.txid.clone(),
+                prev_output_index: computed_utxo.output_index,
+                signature,
+            });
+        }
+
+        inputs
+    }
+
     pub fn create(
         computed_utxos: &[ComputedUTXO],
         sender_private_key: &str,
@@ -86,38 +130,14 @@ impl Transaction {
             });
         }
 
-        let mut tx_data = String::new();
-        for &i in &selected_utxo_indices {
-            let computed_utxo = &computed_utxos[i];
-            tx_data.push_str(&computed_utxo.txid);
-            tx_data.push_str(&computed_utxo.output_index.to_string());
-        }
-        for output in &outputs {
-            tx_data.push_str(&output.value.to_string());
-            tx_data.push_str(&output.address);
-        }
+        let tx_data = Self::build_tx_data(&computed_utxos, &selected_utxo_indices, &outputs);
 
         let mut data_hasher = Sha256::new();
         data_hasher.update(tx_data.as_bytes());
         let tx_data_hash = format!("{:X}", data_hasher.finalize());
 
-        let mut inputs: Vec<TxInput> = Vec::new();
-        for &i in &selected_utxo_indices {
-            let computed_utxo = &computed_utxos[i];
+        let inputs = Self::generate_inputs(&computed_utxos, &selected_utxo_indices, sender_private_key, &tx_data_hash);
 
-            let mut sig_hasher = Sha256::new();
-            sig_hasher.update(sender_private_key.as_bytes());
-            sig_hasher.update(tx_data_hash.as_bytes());
-            let signature = format!("{:X}", sig_hasher.finalize());
-
-            inputs.push(TxInput {
-                prev_txid: computed_utxo.txid.clone(),
-                prev_output_index: computed_utxo.output_index,
-                signature,
-            });
-        }
-
-        // 5. Compute the transaction ID (hash of the full transaction contents)
         let mut txid_hasher = Sha256::new();
         txid_hasher.update(tx_data_hash.as_bytes());
         for input in &inputs {
